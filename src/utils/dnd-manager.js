@@ -225,6 +225,7 @@ export default class DndManager {
       },
 
       hover: (dropTargetProps, monitor, component) => {
+        let targetIndex = 0;
         const targetDepth = this.getTargetDepth(
           dropTargetProps,
           monitor,
@@ -236,16 +237,40 @@ export default class DndManager {
           dropTargetProps.node !== draggedNode ||
           // Or hovered above the same node but at a different depth
           targetDepth !== dropTargetProps.path.length - 1;
-
+  
         if (!needsRedraw) {
           return;
         }
-
-        this.dragHover({
-          node: draggedNode,
-          path: monitor.getItem().path,
-          minimumTreeIndex: dropTargetProps.listIndex,
-          depth: targetDepth,
+        // eslint-disable-next-line react/no-find-dom-node
+        const hoverBoundingRect = findDOMNode(
+          component
+        ).getBoundingClientRect();
+        // Get vertical middle
+        const hoverMiddleY =
+          (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+        const clientOffset = monitor.getClientOffset();
+        // Get pixels to the top
+        const hoverClientY = clientOffset.y - hoverBoundingRect.top;
+  
+        // dragUp
+        if (hoverClientY <= hoverMiddleY) {
+          targetIndex = dropTargetProps.treeIndex;
+        }
+  
+        // dragDown
+        if (hoverClientY >= hoverMiddleY) {
+          targetIndex = dropTargetProps.treeIndex + 1;
+        }
+  
+        // throttle `dragHover` work to available animation frames
+        cancelAnimationFrame(this.rafId);
+        this.rafId = requestAnimationFrame(() => {
+          this.dragHover({
+            node: draggedNode,
+            path: monitor.getItem().path,
+            minimumTreeIndex: targetIndex,
+            depth: targetDepth,
+          });
         });
       },
 
